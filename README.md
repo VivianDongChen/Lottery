@@ -44,9 +44,9 @@
 
 执行 mvn clean install -DskipTests 全量编译
 
-到api下执行 mvn docker:build打包
+到api下执行 mvn docker:build 打包
 
-到msg下mvn docker:build打包
+到msg下mvn docker:build 打包
 
 
 
