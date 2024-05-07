@@ -45,10 +45,15 @@ public class ActController {
     public ApiResult<Object> limits(@PathVariable int gameid, HttpServletRequest request){
         //获取活动基本信息
         CardGame game = (CardGame) redisUtil.get(RedisKeys.INFO+gameid);
+        if (game == null){
+            return new ApiResult<>(-1,"活动未加载",null);
+        }
         //获取当前用户
         HttpSession session = request.getSession();
         CardUser user = (CardUser) session.getAttribute("user");
-
+        if (user == null){
+            return new ApiResult(-1,"未登陆",null);
+        }
         //用户可抽奖次数
         Integer enter = (Integer) redisUtil.get(RedisKeys.USERENTER+gameid+"_"+user.getId());
         if (enter == null){
