@@ -149,7 +149,20 @@ services:
     networks:  
       - lottery_net
 
-networks:  
+  lottery-portainer:
+    image: portainer/portainer:latest
+    container_name: lottery-portainer
+    restart: always
+    ports:
+      - "9443:9443"
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./portainer_data:/data
+    networks:
+      - lottery_net
+
+networks:
   lottery_net:  
     driver: bridge  
     ipam:  
