@@ -30,12 +30,28 @@ export default class HomeView extends Vue {
   total = 0
   pageSize = 1
   pageList: any[] = []
+  listDom: any = null // 列表dom
 
   mounted () {
     this.getInfo()
+
+    this.$nextTick(() => {
+      this.listDom = document.getElementsByClassName('home-page')[0]
+      document.body.addEventListener('scroll', this.onScroll)
+    })
+  }
+
+  onScroll(){
+    const currScrollHheight = document.body.scrollHeight - (window.innerHeight + document.body.scrollTop)
+    if(currScrollHheight <= 50 && !this.finished && !this.loading) {
+      this.pageSize++
+      this.getInfo('add')
+    }
   }
 
   getInfo (type?:string) {
+    if(this.loading) return
+    this.loading = true
     axios
       .get(
         `/game/list/-1/${this.pageSize}/3`

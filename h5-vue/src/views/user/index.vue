@@ -66,7 +66,7 @@ export default class User extends Vue {
     this.getUserInfo()
   }
 
-  // 获取用户信息
+  // 获取用户信息 
   getUserInfo () {
     axios
       .get(
@@ -76,10 +76,8 @@ export default class User extends Vue {
         if (res.data.code === 1) {
           // 用户已登录
           const { data } = res.data
-          data.pic = process.env.VUE_APP_PATH + data.pic
           this.userInfo = data
           
-
           this.getPrizeList()
         } else { 
           // 未登录，跳转登录

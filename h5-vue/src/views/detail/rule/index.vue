@@ -16,7 +16,7 @@
               >
                 <ul class="slide-box">
                   <li v-for="v1 in item" :key="v1.id">
-                    <img :src="imgPath + v1.pic" alt="" />
+                    <img :src="v1.pic" alt="" />
                     <p>{{ v1.name }}</p>
                   </li>
                 </ul>

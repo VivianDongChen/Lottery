@@ -42,7 +42,7 @@ export default class Header extends Vue {
           const { data } = res.data
           this.userInfo = {
             loginFlag: true,
-            photo: process.env.VUE_APP_PATH + data.pic,
+            photo: data.pic,
             userName: data.uname
           }
         } else { 

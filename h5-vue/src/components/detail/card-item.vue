@@ -1,7 +1,7 @@
 <template>
   <div class="card-item" @click="toDetail">
     <div class="card-banner">
-      <img :src="imgPath + item.pic">
+      <img :src="item.pic">
       <div class="card-status" :class="{active: currStatus === 1}" v-show="showTips">{{ statusList[currStatus] }}</div>
       <div class="card-remainder" v-if="remainder">还剩 {{ remainder }}秒</div>
     </div>
