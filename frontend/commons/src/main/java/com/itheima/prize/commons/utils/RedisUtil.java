@@ -63,6 +63,30 @@ public final class RedisUtil {
     }
 
     /**
+     * 分布式锁
+     *
+     * @param key 键
+     * @param value 值
+     * @return true 存在 false不存在
+     */
+    public boolean setNx(String key,Object value){
+        Boolean result = redisTemplate.opsForValue().setIfAbsent(key, value);
+        return result != null && result;
+    }
+
+    /**
+     * 分布式锁，设置自动失效
+     *
+     * @param key 键
+     * @param value 值
+     * @return true 存在 false不存在
+     */
+    public boolean setNx(String key,Object value,long secondsDuration){
+        Boolean result = redisTemplate.opsForValue().setIfAbsent(key, value,secondsDuration,TimeUnit.SECONDS);
+        return result != null && result;
+    }
+
+    /**
      * 删除缓存
      *
      * @param key 可以传一个值 或多个
