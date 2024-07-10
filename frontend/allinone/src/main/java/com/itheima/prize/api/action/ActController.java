@@ -116,8 +116,7 @@ public class ActController {
             return new ApiResult(-1,"未登陆",null);
         }else{
             //第一次抽奖，发送消息队列，用于记录参与的活动（redis分布式锁）
-            if (!redisUtil.hasKey(RedisKeys.USERGAME+user.getId()+"_"+gameid)){
-                redisUtil.set(RedisKeys.USERGAME+user.getId()+"_"+gameid,1,(game.getEndtime().getTime() - now.getTime())/1000);
+            if (redisUtil.setNx(RedisKeys.USERGAME+user.getId()+"_"+gameid,1,(game.getEndtime().getTime() - now.getTime())/1000)){
                 //持久化抽奖记录，扔给消息队列处理
                 CardUserGame userGame = new CardUserGame();
                 userGame.setUserid(user.getId());
