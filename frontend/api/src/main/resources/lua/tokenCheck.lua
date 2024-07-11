@@ -7,7 +7,7 @@ redis.log(redis.LOG_NOTICE, "-- 开始抽奖操作 ：gameId,userId,maxGoal=" ..
 local usergoal = redis.call('get','user_hit_' .. KEYS[1] .. '_' .. KEYS[2])
 
 -- 中奖次数大于最大允许次数，返回-1
-if usergoal ~= false and tonumber(usergoal) >= tonumber(KEYS[3]) then
+if usergoal ~= false and tonumber(KEYS[3]) ~=0 and tonumber(usergoal) >= tonumber(KEYS[3]) then
     redis.log(redis.LOG_NOTICE, "-- 中奖次数超出上限，tonumber(usergoal) > tonumber(KEYS[3]) , return -1")
     return -1
 end
