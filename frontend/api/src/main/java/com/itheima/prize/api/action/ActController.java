@@ -5,6 +5,8 @@ import com.itheima.prize.api.config.LuaScript;
 import com.itheima.prize.commons.config.RabbitKeys;
 import com.itheima.prize.commons.config.RedisKeys;
 import com.itheima.prize.commons.db.entity.*;
+import com.itheima.prize.commons.db.mapper.CardGameMapper;
+import com.itheima.prize.commons.db.service.CardGameService;
 import com.itheima.prize.commons.utils.ApiResult;
 import com.itheima.prize.commons.utils.RedisUtil;
 import io.swagger.annotations.Api;
@@ -94,128 +96,8 @@ public class ActController {
             @ApiImplicitParam(name="gameid",value = "活动id",example = "1",required = true)
     })
     public ApiResult<Object> act(@PathVariable int gameid, HttpServletRequest request){
-        Date now = new Date();
-        //获取活动基本信息
-        CardGame game = (CardGame) redisUtil.get(RedisKeys.INFO+gameid);
-        //判断活动是否开始
-        //如果活动信息还没加载进redis，无效
-        //如果活动已经加载，预热完成，但是开始时间 > 当前时间，也无效
-        if (game == null || game.getStarttime().after(now)){
-            return new ApiResult(-1,"活动未开始",null);
-        }
-        //判断活动是否已结束
-        if (now.after(game.getEndtime())){
-            return new ApiResult(-1,"活动已结束",null);
-        }
-        //获取当前用户
-        HttpSession session = request.getSession();
-        CardUser user = (CardUser) session.getAttribute("user");
-        if (user == null){
-            return new ApiResult(-1,"未登陆",null);
-        }else{
-            //第一次抽奖，发送消息队列，用于记录参与的活动（redis分布式锁）
-            if (redisUtil.setNx(RedisKeys.USERGAME+user.getId()+"_"+gameid,1,(game.getEndtime().getTime() - now.getTime())/1000)){
-                //持久化抽奖记录，扔给消息队列处理
-                CardUserGame userGame = new CardUserGame();
-                userGame.setUserid(user.getId());
-                userGame.setGameid(gameid);
-                userGame.setCreatetime(new Date());
-                rabbitTemplate.convertAndSend(RabbitKeys.EXCHANGE_DIRECT,RabbitKeys.QUEUE_PLAY, JSON.toJSONString(userGame));
-            }
-        }
-
-        //根据会员等级，获取本活动允许的最大抽奖次数
-        Integer maxenter = (Integer) redisUtil.hget(RedisKeys.MAXENTER+gameid,user.getLevel()+"");
-        //如果没设置，默认为0，即：不限制次数
-        maxenter = maxenter==null ? 0 : maxenter;
-
-        //次数对比
-        if (maxenter > 0){
-            //用户可抽奖次数
-            long enter = redisUtil.incr(RedisKeys.USERENTER+gameid+"_"+user.getId(),1);
-            if (enter > maxenter){
-                //如果达到最大次数，不允许抽奖
-                return new ApiResult(-1,"您的抽奖次数已用完",null);
-            }
-        }
-
-        //根据会员等级，获取本活动允许的最大中奖数
-        Integer maxgoal = (Integer) redisUtil.hget(RedisKeys.MAXGOAL+gameid,user.getLevel()+"");
-        //如果没设置，默认为0，即：不限制次数
-        maxgoal = maxgoal==null ? 0 : maxgoal;
-
-
-        //以上校验全部过关，进入下一步：拿token
-        //也就是决定中不中最关键的一步，拿到合法token就中奖
-        Long token;
-        switch (game.getType()) {
-            //时间随机
-            case 1:
-                //随即类比较麻烦，按设计时序图走
-                //lua调redis
-                token = luaScript.tokenCheck(gameid,user.getId(),maxgoal);
-                if(token == 0){
-                    return new ApiResult(0,"未中奖",null);
-                }else if(token == -1){
-                    return new ApiResult(-1,"您已达到最大中奖数",null);
-                }else if(token == -2){
-                    return new ApiResult(-1,"奖品已抽光",null);
-                }
-
-                break;
-
-            case 2:
-
-                //瞬间秒杀类简单，直接获取令牌，有就中，没有就说明抢光了
-                token = (Long) redisUtil.leftPop(RedisKeys.TOKENS+gameid);
-                if (token == null){
-                    //令牌已用光，说明奖品抽光了
-                    return new ApiResult(-1,"奖品已抽光",null);
-                }
-
-                break;
-
-            case 3:
-
-                //幸运转盘类，先给用户随机剔除，再获取令牌，有就中，没有就说明抢光了
-                //一般这种情况会设置足够的商品，卡在随机上
-                Integer randomRate = (Integer) redisUtil.hget(RedisKeys.RANDOMRATE+gameid,user.getLevel()+"");
-                if (randomRate == null){
-                    randomRate = 100;
-                }
-                //注意这里的概率设计思路：
-                //每次请求取一个0-100之间的随机数，如果这个数没有落在范围内，直接返回未中奖
-                if( new Random().nextInt(100) > randomRate ){
-                    return new ApiResult(0,"未中奖",null);
-                }
-
-                token = (Long) redisUtil.leftPop(RedisKeys.TOKENS+gameid);
-                if (token == null){
-                    //令牌已用光，说明奖品抽光了
-                    return new ApiResult(-1,"奖品已抽光",null);
-                }
-
-                break;
-
-            default:
-                return new ApiResult(-1,"不支持的活动类型",null);
-
-        }//end switch
-
-
-        //以上逻辑走完，拿到了合法的token，说明很幸运，中奖了！
-        //抽中的奖品：
-        CardProduct product = (CardProduct) redisUtil.get(RedisKeys.TOKEN + gameid +"_"+token);
-        //投放消息给队列，中奖后的耗时业务，交给消息模块处理
-        CardUserHit hit = new CardUserHit();
-        hit.setGameid(gameid);
-        hit.setHittime(now);
-        hit.setProductid(product.getId());
-        hit.setUserid(user.getId());
-        rabbitTemplate.convertAndSend(RabbitKeys.EXCHANGE_DIRECT,RabbitKeys.QUEUE_HIT, JSON.toJSONString(hit));
-
-        //返回给前台中奖信息
-        return new ApiResult(1,"恭喜中奖",product);
+        //TODO
+        return null;
     }
 
     @GetMapping("/info/{gameid}")
@@ -224,17 +106,7 @@ public class ActController {
             @ApiImplicitParam(name="gameid",value = "活动id",example = "1",required = true)
     })
     public ApiResult info(@PathVariable int gameid){
-        Map map = new LinkedHashMap<>();
-        map.put(RedisKeys.INFO+gameid,redisUtil.get(RedisKeys.INFO+gameid));
-        List<Object> tokens = redisUtil.lrange(RedisKeys.TOKENS+gameid,0,-1);
-        Map tokenMap =new LinkedHashMap();
-        tokens.forEach(o -> tokenMap.put(
-                new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(new Date(Long.valueOf(o.toString())/1000)),
-                redisUtil.get(RedisKeys.TOKEN + gameid +"_"+o))
-        );
-        map.put(RedisKeys.TOKENS+gameid,tokenMap);
-        map.put(RedisKeys.MAXGOAL+gameid,redisUtil.hmget(RedisKeys.MAXGOAL+gameid));
-        map.put(RedisKeys.MAXENTER+gameid,redisUtil.hmget(RedisKeys.MAXENTER+gameid));
-        return new ApiResult(200,"缓存信息",map);
+        //TODO
+        return null;
     }
 }

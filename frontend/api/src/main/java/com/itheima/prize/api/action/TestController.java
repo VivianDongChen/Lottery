@@ -58,12 +58,12 @@ public class TestController {
         CardUser user = (CardUser) session.getAttribute("user");
         Long token = luaScript.tokenCheck(gameid,user.getId(),3);
         String msg = null;
-        if (token == 0){
-            msg = "奖池已空";
-        }else if (token == 1){
-            msg = "未中奖";
-        }else{
-            msg = "恭喜中奖";
+        if(token == 0){
+            return new ApiResult(0,"未中奖",null);
+        }else if(token == -1){
+            return new ApiResult(-1,"您已达到最大中奖数",null);
+        }else if(token == -2){
+            return new ApiResult(-1,"奖品已抽光",null);
         }
         return new ApiResult(200,msg,token);
     }
