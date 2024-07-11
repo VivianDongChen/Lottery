@@ -5,8 +5,6 @@ import com.itheima.prize.api.config.LuaScript;
 import com.itheima.prize.commons.config.RabbitKeys;
 import com.itheima.prize.commons.config.RedisKeys;
 import com.itheima.prize.commons.db.entity.*;
-import com.itheima.prize.commons.db.mapper.CardGameMapper;
-import com.itheima.prize.commons.db.service.CardGameService;
 import com.itheima.prize.commons.utils.ApiResult;
 import com.itheima.prize.commons.utils.RedisUtil;
 import io.swagger.annotations.Api;
@@ -126,40 +124,25 @@ public class ActController {
             }
         }
 
-        //用户可抽奖次数
-        Integer enter = (Integer) redisUtil.get(RedisKeys.USERENTER+gameid+"_"+user.getId());
-        if (enter == null){
-            enter = 0;
-            redisUtil.set(RedisKeys.USERENTER+gameid+"_"+user.getId(),enter,(game.getEndtime().getTime() - now.getTime())/1000);
-        }
         //根据会员等级，获取本活动允许的最大抽奖次数
         Integer maxenter = (Integer) redisUtil.hget(RedisKeys.MAXENTER+gameid,user.getLevel()+"");
         //如果没设置，默认为0，即：不限制次数
         maxenter = maxenter==null ? 0 : maxenter;
+
         //次数对比
-        if (maxenter > 0 && enter >= maxenter){
-            //如果达到最大次数，不允许抽奖
-            return new ApiResult(-1,"您的抽奖次数已用完",null);
-        }else{
-            redisUtil.incr(RedisKeys.USERENTER+gameid+"_"+user.getId(),1);
+        if (maxenter > 0){
+            //用户可抽奖次数
+            long enter = redisUtil.incr(RedisKeys.USERENTER+gameid+"_"+user.getId(),1);
+            if (enter > maxenter){
+                //如果达到最大次数，不允许抽奖
+                return new ApiResult(-1,"您的抽奖次数已用完",null);
+            }
         }
 
-
-        //用户已中奖次数
-        Integer count = (Integer) redisUtil.get(RedisKeys.USERHIT+gameid+"_"+user.getId());
-        if (count == null){
-            count = 0;
-            redisUtil.set(RedisKeys.USERHIT+gameid+"_"+user.getId(),count,(game.getEndtime().getTime() - now.getTime())/1000);
-        }
         //根据会员等级，获取本活动允许的最大中奖数
-        Integer maxcount = (Integer) redisUtil.hget(RedisKeys.MAXGOAL+gameid,user.getLevel()+"");
+        Integer maxgoal = (Integer) redisUtil.hget(RedisKeys.MAXGOAL+gameid,user.getLevel()+"");
         //如果没设置，默认为0，即：不限制次数
-        maxcount = maxcount==null ? 0 : maxcount;
-        //次数对比
-        if (maxcount > 0 && count >= maxcount){
-            //如果达到最大次数，不允许抽奖
-            return new ApiResult(-1,"您已达到最大中奖数",null);
-        }
+        maxgoal = maxgoal==null ? 0 : maxgoal;
 
 
         //以上校验全部过关，进入下一步：拿token
@@ -169,28 +152,14 @@ public class ActController {
             //时间随机
             case 1:
                 //随即类比较麻烦，按设计时序图走
-
-                //java调redis，有原子性问题！
-//                token = (Long) redisUtil.leftPop(RedisKeys.TOKENS+gameid);
-//                if (token == null){
-//                    //令牌已用光，说明奖品抽光了
-//                    return new ApiResult(-1,"奖品已抽光",null);
-//                }
-//                //判断令牌时间戳大小，即是否中奖
-//                //这里记住，取出的令牌要除以1000，参考job项目，令牌生成部分
-//                if (now.getTime() < token/1000){
-//                    //当前时间小于令牌时间戳，说明奖品未到发放时间点，放回令牌，返回未中奖
-//                    redisUtil.leftPush(RedisKeys.TOKENS+gameid,token);
-//                    return new ApiResult(0,"未中奖",null);
-//                }
-
-
                 //lua调redis
-                token = luaScript.tokenCheck(RedisKeys.TOKENS+gameid,String.valueOf(new Date().getTime()));
+                token = luaScript.tokenCheck(gameid,user.getId(),maxgoal);
                 if(token == 0){
-                    return new ApiResult(-1,"奖品已抽光",null);
-                }else if(token == 1){
                     return new ApiResult(0,"未中奖",null);
+                }else if(token == -1){
+                    return new ApiResult(-1,"您已达到最大中奖数",null);
+                }else if(token == -2){
+                    return new ApiResult(-1,"奖品已抽光",null);
                 }
 
                 break;
@@ -237,8 +206,6 @@ public class ActController {
         //以上逻辑走完，拿到了合法的token，说明很幸运，中奖了！
         //抽中的奖品：
         CardProduct product = (CardProduct) redisUtil.get(RedisKeys.TOKEN + gameid +"_"+token);
-        //中奖次数加1
-        redisUtil.incr(RedisKeys.USERHIT+gameid+"_"+user.getId(),1);
         //投放消息给队列，中奖后的耗时业务，交给消息模块处理
         CardUserHit hit = new CardUserHit();
         hit.setGameid(gameid);

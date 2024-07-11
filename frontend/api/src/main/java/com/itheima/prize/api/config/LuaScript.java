@@ -9,12 +9,10 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
-public class LuaScript{
+public class LuaScript {
     @Autowired
     private RedisTemplate redisTemplate;
  
@@ -26,12 +24,17 @@ public class LuaScript{
         script.setResultType(Long.class);
         script.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/tokenCheck.lua")));
     }
- 
-    public Long tokenCheck(String gamekey,String curtime){
+
+    /*
+    * 调lua脚本获取token
+    * gameId: 活动id， userId：当前登录用户的id， maxCount：当前活动允许的最大中奖次数
+    * */
+    public Long tokenCheck(int gameId,int userId,int maxCount){
 
         List<String> keys = new ArrayList();
-        keys.add(gamekey);
-        keys.add(curtime);
+        keys.add(String.valueOf(gameId));
+        keys.add(String.valueOf(userId));
+        keys.add(String.valueOf(maxCount));
 
         Long result = (Long) redisTemplate.execute(script,keys,0,0);
 

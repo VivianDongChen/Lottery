@@ -130,6 +130,7 @@ public class GameTask {
             //活动状态变更为已预热，禁止管理后台再随便变动
             game.setStatus(1);
             gameService.updateById(game);
+
         });
     }
 }

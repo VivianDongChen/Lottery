@@ -4,9 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.itheima.prize.api.config.LuaScript;
 import com.itheima.prize.commons.config.RedisKeys;
 import com.itheima.prize.commons.db.entity.*;
-import com.itheima.prize.commons.db.mapper.CardGameMapper;
-import com.itheima.prize.commons.db.mapper.CardProductMapper;
-import com.itheima.prize.commons.db.mapper.CardUserHitMapper;
 import com.itheima.prize.commons.db.service.CardGameService;
 import com.itheima.prize.commons.db.service.CardProductService;
 import com.itheima.prize.commons.db.service.CardUserHitService;
@@ -20,17 +17,17 @@ import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang3.time.DateUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -56,8 +53,10 @@ public class TestController {
     @ApiImplicitParams({
             @ApiImplicitParam(name="gameid",value = "活动id",example = "1",required = true)
     })
-    public ApiResult luatest(@PathVariable int gameid){
-        Long token = luaScript.tokenCheck("game_"+gameid,String.valueOf(new Date().getTime()));
+    public ApiResult luatest(@PathVariable int gameid, HttpServletRequest request){
+        HttpSession session = request.getSession();
+        CardUser user = (CardUser) session.getAttribute("user");
+        Long token = luaScript.tokenCheck(gameid,user.getId(),3);
         String msg = null;
         if (token == 0){
             msg = "奖池已空";
