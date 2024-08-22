@@ -16,11 +16,11 @@ ruoyi:
   uploadType: minio
 
 #minio的完整url会写入后台的数据库
-#例如：http://127.0.0.1:9005/prize/1701754725603.jpeg
+#例如：http://103.144.2.88:9005/prize/1701754725603.jpeg
 #所以要保障其可访问性，尤其是docker部署的时候，应该是宿主机暴露的端口！
 minio:
-  url: http://127.0.0.1:9005
-  host: 127.0.0.1
+  url: http://103.144.2.88:9005
+  host: 103.144.2.88
   port: 9005
   bucket: prize
   username: minioadmin
