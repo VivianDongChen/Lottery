@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
@@ -44,9 +45,28 @@ public class GameController {
             @ApiImplicitParam(name = "curpage",value = "第几页",defaultValue = "1",dataType = "int", example = "1",required = true),
             @ApiImplicitParam(name = "limit",value = "每页条数",defaultValue = "10",dataType = "int",example = "3",required = true)
     })
-    public ApiResult list(@PathVariable int status,@PathVariable int curpage,@PathVariable int limit) {
+    public ApiResult<PageBean<CardGame>> list(@PathVariable int status,@PathVariable int curpage,@PathVariable int limit) {
         //TODO
-        return null;
+
+        // 设置分页参数
+        Page<CardGame> page = new Page<>(curpage, limit);
+
+        // 设置查询条件
+        QueryWrapper<CardGame> queryWrapper = new QueryWrapper<>();
+        if (status != -1) {
+            queryWrapper.eq("status", status);
+        }
+
+        // 调用 service 执行分页查询
+        Page<CardGame> resultPage = gameService.page(page, queryWrapper);
+
+        // 使用 PageBean 对象包装分页结果
+        PageBean<CardGame> pageBean = new PageBean<>(resultPage);
+
+        // 构建返回结果
+        ApiResult<PageBean<CardGame>> result = new ApiResult<>(1, "成功", pageBean);
+
+        return result;
     }
 
     @GetMapping("/info/{gameid}")
@@ -56,7 +76,22 @@ public class GameController {
     })
     public ApiResult<CardGame> info(@PathVariable int gameid) {
         //TODO
-        return null;
+
+        // 通过 gameid 查找活动信息
+        CardGame cardGame = gameService.getById(gameid);
+
+        // 如果未找到活动，返回错误信息
+        if (cardGame == null) {
+            return new ApiResult<>(0, "活动未找到", null);
+        }
+
+        // 构建返回结果
+        ApiResult<CardGame> result = new ApiResult<>(1, "成功", cardGame);
+
+        // 设置格式化后的当前时间
+        result.setNow(new Date());
+
+        return result;
     }
 
     @GetMapping("/products/{gameid}")
@@ -66,7 +101,22 @@ public class GameController {
     })
     public ApiResult<List<CardProductDto>> products(@PathVariable int gameid) {
         //TODO
-        return null;
+
+        // 使用 loadService 通过 gameid 查找活动相关的奖品信息
+        List<CardProductDto> productList = loadService.getByGameId(gameid);
+
+        // 如果未找到奖品信息，返回错误信息
+        if (productList == null || productList.isEmpty()) {
+            return new ApiResult<>(0, "未找到相关奖品信息", null);
+        }
+
+        // 构建返回结果
+        ApiResult<List<CardProductDto>> result = new ApiResult<>(1, "成功", productList);
+
+        // 设置当前时间
+        result.setNow(new Date());
+
+        return result;
     }
 
     @GetMapping("/hit/{gameid}/{curpage}/{limit}")
@@ -78,7 +128,24 @@ public class GameController {
     })
     public ApiResult<PageBean<ViewCardUserHit>> hit(@PathVariable int gameid,@PathVariable int curpage,@PathVariable int limit) {
         //TODO
-        return null;
+
+        // 设置分页参数
+        Page<ViewCardUserHit> page = new Page<>(curpage, limit);
+
+        // 设置查询条件
+        QueryWrapper<ViewCardUserHit> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("gameid", gameid);
+
+        // 执行分页查询
+        Page<ViewCardUserHit> resultPage = hitService.page(page, queryWrapper);
+
+        // 使用 PageBean 对象包装分页结果
+        PageBean<ViewCardUserHit> pageBean = new PageBean<>(resultPage);
+
+        // 构建返回结果
+        ApiResult<PageBean<ViewCardUserHit>> result = new ApiResult<>(1, "成功", pageBean);
+
+        return result;
     }
 
 
