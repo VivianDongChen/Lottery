@@ -105,8 +105,45 @@ public class ActController {
     @ApiImplicitParams({
             @ApiImplicitParam(name="gameid",value = "活动id",example = "1",required = true)
     })
-    public ApiResult info(@PathVariable int gameid){
+    public ApiResult<Map<String, Object>> info(@PathVariable int gameid){
         //TODO
-        return null;
+        Map<String, Object> data = new HashMap<>();
+        String now = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(new Date());
+
+        // Fetch game info from Redis
+        CardGame gameInfo = (CardGame) redisUtil.get(RedisKeys.INFO + gameid);
+        data.put("game_info_" + gameid, gameInfo);
+
+        // Fetch game tokens from Redis
+        List<Long> tokenList = (List<Long>) (List<?>) redisUtil.lrange(RedisKeys.TOKENS + gameid, 0, -1);
+
+        Map<String, CardProduct> tokenMap = new HashMap<>();
+        if (tokenList != null) {
+            for (Long token : tokenList) {
+                CardProduct product = (CardProduct) redisUtil.get(RedisKeys.TOKEN + gameid + "_" + token);
+                if (product != null) {
+                    String formattedDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(new Date(token / 1000));
+                    tokenMap.put(formattedDate, product);
+                }
+            }
+        }
+        data.put("game_tokens_" + gameid, tokenMap);
+
+        // Fetch max goals from Redis
+        Map<Object, Object> maxGoals = redisUtil.hmget(RedisKeys.MAXGOAL + gameid);
+        data.put("game_maxgoal_" + gameid, maxGoals);
+
+        // Fetch max entries from Redis
+        Map<Object, Object> maxEntries = redisUtil.hmget(RedisKeys.MAXENTER + gameid);
+        data.put("game_maxenter_" + gameid, maxEntries);
+
+        // Prepare the response
+//        Map<String, Object> response = new HashMap<>();
+//        response.put("code", 200);
+//        response.put("msg", "缓存信息");
+//        response.put("data", data);
+//        response.put("now", now);
+
+        return new ApiResult<>(200, "缓存信息", data);
     }
 }
