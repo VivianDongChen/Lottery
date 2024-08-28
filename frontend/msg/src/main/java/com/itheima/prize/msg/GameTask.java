@@ -35,25 +35,27 @@ public class GameTask {
     @Autowired
     private RedisUtil redisUtil;
 
+    //schedule task: at the 0th second of every minute, of every hour, of every day.
     @Scheduled(cron = "0 * * * * ?")
     public void execute() {
-        // 获取当前时间的Calendar实例
+        // Getting Current Time
         Calendar calendar = Calendar.getInstance();
-        // 清除毫秒部分
+        // Clears the milliseconds to ensure a clean timestamp
         calendar.set(Calendar.MILLISECOND, 0);
-        // 获取不带毫秒的Date对象
+        // Converts the calendar to a Date object.
         Date now = calendar.getTime();
-        //分布式锁，防止重复启动任务
+        // Distributed Locking
         if (!redisUtil.setNx("game_task_"+now.getTime(),1,60L)){
             log.info("task started by another server!");
-            return;
+            return; //If the lock is not acquired, the task exits, indicating another server is already handling it.
         }
-        //查询将来1分钟内要开始的活动
+        //Creates a query wrapper for CardGame.
         QueryWrapper<CardGame> gameQueryWrapper = new QueryWrapper<>();
-        //开始时间大于当前时间
+        //Filters games that have a start time greater than the current time.
         gameQueryWrapper.gt("starttime",now);
-        //小于等于（当前时间+1分钟）
+        //Filters games that are starting within the next minute.
         gameQueryWrapper.le("starttime",DateUtils.addMinutes(now,1));
+        //Executes the query and retrieves the list of games.
         List<CardGame> list = gameService.list(gameQueryWrapper);
         if(list.size() == 0){
             //没有查到要开始的活动
@@ -61,11 +63,10 @@ public class GameTask {
             return;
         }
         log.info("game list scan : size = {}",list.size());
-        //有相关活动数据，则将活动数据预热，进redis
+        //For each game found, the code prepares it for execution by loading relevant data into Redis.
         list.forEach(game ->{
-            //活动开始时间
+            //The game's basic information, including status, is stored in Redis.
             long start = game.getStarttime().getTime();
-            //活动结束时间
             long end = game.getEndtime().getTime();
             //计算活动结束时间到现在还有多少秒，作为redis key过期时间
             long expire = (end - now.getTime())/1000;

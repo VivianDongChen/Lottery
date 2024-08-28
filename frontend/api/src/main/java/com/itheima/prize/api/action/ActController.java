@@ -137,13 +137,6 @@ public class ActController {
         Map<Object, Object> maxEntries = redisUtil.hmget(RedisKeys.MAXENTER + gameid);
         data.put("game_maxenter_" + gameid, maxEntries);
 
-        // Prepare the response
-//        Map<String, Object> response = new HashMap<>();
-//        response.put("code", 200);
-//        response.put("msg", "缓存信息");
-//        response.put("data", data);
-//        response.put("now", now);
-
         return new ApiResult<>(200, "缓存信息", data);
     }
 }
