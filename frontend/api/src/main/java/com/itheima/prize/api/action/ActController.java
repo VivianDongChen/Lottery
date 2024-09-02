@@ -203,7 +203,6 @@ public class ActController {
 
         }//end switch
 
-
         //以上逻辑走完，拿到了合法的token，说明很幸运，中奖了！
         //抽中的奖品：
         CardProduct product = (CardProduct) redisUtil.get(RedisKeys.TOKEN + gameid +"_"+token);
